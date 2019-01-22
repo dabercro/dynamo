@@ -1,10 +1,17 @@
+import logging
+
 from dynamo.policy.condition import Condition
 from dynamo.policy.variables import site_variables, replica_variables
+
+from dynamo.policy.predicates import Predicate
+
+LOG = logging.getLogger(__name__)
 
 class ReplicaCondition(Condition):
     def __init__(self, text):
         Condition.__init__(self, text, replica_variables)
-
+        self.text = text
+        
     def get_matching_blocks(self, replica):
         """If this is a block-level condition, return the list of matching block replicas."""
 
@@ -18,3 +25,5 @@ class ReplicaCondition(Condition):
 class SiteCondition(Condition):
     def __init__(self, text):
         Condition.__init__(self, text, site_variables)
+
+

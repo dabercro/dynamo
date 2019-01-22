@@ -39,6 +39,7 @@ class TransferRequestList(WebModule):
             req_id = int(line)
             break
             
+        LOG.info(req_id)
         req_hash = self.copy_manager.get_requests(request_id=req_id)
         LOG.info(req_id)
         LOG.info(req_hash)

@@ -1,10 +1,14 @@
 import re
 import fnmatch
+import logging
+import time
 
 from dynamo.web.exceptions import MissingParameter, ExtraParameter, IllFormedRequest, InvalidRequest
 from dynamo.web.modules._common import yesno
 from dynamo.utils.interface.mysql import MySQL
 import dynamo.dataformat as df
+
+LOG = logging.getLogger(__name__)
 
 class ParseInputMixin(object):
     def __init__(self, config):
@@ -12,11 +16,20 @@ class ParseInputMixin(object):
         self.params = {}
 
     def parse_input(self, request, inventory, allowed_fields, required_fields = tuple()):
+        if self.input_data is not None:
+            LOG.info("Input data:")
+            LOG.info(self.input_data)
+        else:
+            LOG.info("No input data:")
         # JSON could have been uploaded
         if self.input_data is not None:
+            LOG.info("Updating input:")
             request.update(self.input_data)
+            LOG.info("Completed updating input.")
 
         # Check we have the right request fields
+        
+        LOG.info("A: %s" % str(time.time()))
 
         input_fields = set(request.keys())
         allowed_fields = set(allowed_fields)
@@ -29,6 +42,8 @@ class ParseInputMixin(object):
                 raise MissingParameter(key)
 
         # Pick up the values and cast them to correct types
+
+        LOG.info("B: %s" % str(time.time()))
 
         for key in ['request_id', 'n']:
             if key not in request:
@@ -68,6 +83,7 @@ class ParseInputMixin(object):
         # The only reason for this would be to make the registry not dependent on specific inventory store technology.
 
         if 'item' in self.params:
+            print "Found item."
             for item in self.params['item']:
                 if item in inventory.datasets:
                     # OK this is a known dataset
@@ -81,6 +97,7 @@ class ParseInputMixin(object):
                 try:
                     inventory.datasets[dataset_name].find_block(block_name, must_find = True)
                 except:
+                    print 'Invalid block name %s' % item
                     raise InvalidRequest('Invalid block name %s' % item)
 
         if 'site' in self.params:
@@ -91,6 +108,8 @@ class ParseInputMixin(object):
 
                 # Wildcard allowed
                 if '*' in site or '?' in site or '[' in site:
+                    LOG.info("C: %s" % str(time.time()))
+        
                     self.params['site'].remove(site)
                     pattern = re.compile(fnmatch.translate(site))
 
@@ -106,6 +125,8 @@ class ParseInputMixin(object):
             if len(self.params['site']) == 0:
                 self.params.pop('site')
 
+        LOG.info("D: %s" % str(time.time()))
+
         if 'group' in self.params:
             try:
                 inventory.groups[self.params['group']]
@@ -116,6 +137,9 @@ class ParseInputMixin(object):
             for status in self.params['status']:
                 if status not in ('new', 'activated', 'completed', 'rejected', 'cancelled'):
                     raise InvalidRequest('Invalid status value %s' % status)
+
+        LOG.info("Printing all request parameterss")
+        LOG.info(self.params)
 
     def make_constraints(self, by_id = False):
         constraints = {}

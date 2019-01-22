@@ -1,9 +1,13 @@
+import logging
 import time
 import multiprocessing
 import threading
 import Queue
+import sys
 
 from dynamo.dataformat import Configuration
+
+LOG = logging.getLogger(__name__)
 
 class FunctionWrapper(object):
     def __init__(self, function, start_sem, done_sem):

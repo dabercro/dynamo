@@ -551,9 +551,12 @@ class WebServer(object):
             response += 'Traceback (most recent call last):\n'
             response += ''.join(traceback.format_tb(tb)) + '\n'
             response += '%s: %s\n' % (exc_type.__name__, str(exc))
-            return response
         else:
-            return 'Internal server error! (' + exc_type.__name__ + ': ' + str(exc) + ')\n'
+            response = 'Internal server error! (' + exc_type.__name__ + ': ' + str(exc) + ')\n'
+
+        LOG.error(response)
+
+        return response
 
 class DummyInventory(object):
     """

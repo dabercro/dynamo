@@ -1,4 +1,5 @@
 import logging
+import time
 
 from dynamo.utils.interface.mysql import MySQL
 from dynamo.history.history import HistoryDatabase
@@ -110,6 +111,7 @@ class RequestManager(object):
         @param items   List of dataset and block names.
         @param sites   List of site names.
         """
+        LOG.info("aV4_0d_A %s" % str(time.time()))
 
         # Make temporary tables and fill copy_ids_tmp with ids of requests whose item and site lists fully cover the provided list of items and sites.
         columns = ['`item` varchar(512) CHARACTER SET latin1 COLLATE latin1_general_cs NOT NULL']
@@ -117,16 +119,27 @@ class RequestManager(object):
         columns = ['`site` varchar(32) CHARACTER SET latin1 COLLATE latin1_general_cs NOT NULL']
         self.registry.db.create_tmp_table('sites_tmp', columns)
 
+        LOG.info("aV4_0d_B %s" % str(time.time()))
+
         if items is not None:
             self.registry.db.insert_many('items_tmp', ('item',), MySQL.make_tuple, items, db = self.registry.db.scratch_db)
+
+        LOG.info(sites)
+
         if sites is not None:
             self.registry.db.insert_many('sites_tmp', ('site',), MySQL.make_tuple, sites, db = self.registry.db.scratch_db)
+
+
+        LOG.info("aV4_0d_C %s" % str(time.time()))
 
         columns = [
             '`id` int(10) unsigned NOT NULL AUTO_INCREMENT',
             'PRIMARY KEY (`id`)'
         ]
         self.registry.db.create_tmp_table('ids_tmp', columns)
+
+        LOG.info("aV4_0d_D %s" % str(time.time()))
+
 
         sql = 'INSERT INTO `{db}`.`ids_tmp`'
         sql += ' SELECT r.`id` FROM `{op}_requests` AS r WHERE'
@@ -135,8 +148,12 @@ class RequestManager(object):
         sql += ' 0 NOT IN (SELECT (`item` IN (SELECT `item` FROM `{op}_request_items` AS i WHERE i.`request_id` = r.`id`)) FROM `{db}`.`items_tmp`)'
         self.registry.db.query(sql.format(db = self.registry.db.scratch_db, op = self.optype))
 
+        LOG.info("aV4_0d_E %s" % str(time.time()))
+
         self.registry.db.drop_tmp_table('items_tmp')
         self.registry.db.drop_tmp_table('sites_tmp')
+
+        LOG.info("aV4_0d_F %s" % str(time.time()))
 
         return '`{db}`.`ids_tmp`'.format(db = self.registry.db.scratch_db)
 
@@ -201,18 +218,28 @@ class RequestManager(object):
     def _make_registry_constraints(self, request_id, statuses, users, items, sites):
         constraints = []
 
+        LOG.info("aV4_0a %s" % str(time.time()))
+
         if request_id is not None:
             constraints.append('r.`id` = %d' % request_id)
+
+        LOG.info("aV4_0b %s" % str(time.time()))
 
         if statuses is not None:
             constraints.append('r.`status` IN ' + MySQL.stringify_sequence(statuses))
 
+        LOG.info("aV4_0c %s" % str(time.time()))
+
         if users is not None:
             constraints.append('r.`user` IN ' + MySQL.stringify_sequence(users))
+
+        LOG.info("aV4_0d %s" % str(time.time()))
 
         if items is not None or sites is not None:
             temp_table = self._make_temp_registry_tables(items, sites)
             constraints.append('r.`id` IN (SELECT `id` FROM {0})'.format(temp_table))
+
+        LOG.info("aV4_0e %s" % str(time.time()))
 
         if len(constraints) != 0:
             return ' WHERE ' + ' AND '.join(constraints)

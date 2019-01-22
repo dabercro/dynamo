@@ -24,6 +24,8 @@ class CopyRequestManager(RequestManager):
             self.registry.db.lock_tables(write = tables)
 
     def get_requests(self, request_id = None, statuses = None, users = None, items = None, sites = None):
+        LOG.info("aV4_0: %s" % str(time.time()))
+
         all_requests = {}
 
         sql = 'SELECT r.`id`, r.`group`, r.`num_copies`, 0+r.`status`, UNIX_TIMESTAMP(r.`first_request_time`), UNIX_TIMESTAMP(r.`last_request_time`),'
@@ -34,6 +36,9 @@ class CopyRequestManager(RequestManager):
         sql += ' ORDER BY r.`id`'
 
         _rid = 0
+
+        LOG.info("aV4_1: %s" % str(time.time()))
+
         for rid, group, n, status, first_request, last_request, count, user, dn, a_item, a_site, a_status, a_update in self.registry.db.xquery(sql):
             if rid != _rid:
                 _rid = rid
@@ -44,6 +49,8 @@ class CopyRequestManager(RequestManager):
 
             if a_item is not None:
                 request.actions.append(RequestAction(a_item, a_site, int(a_status), a_update))
+
+        LOG.info("aV4_2: %s" % str(time.time()))
 
         if len(all_requests) != 0:
             # get the sites
@@ -56,13 +63,19 @@ class CopyRequestManager(RequestManager):
             for rid, item in self.registry.db.xquery(sql):
                 all_requests[rid].items.append(item)
 
+        LOG.info("aV4_3: %s" % str(time.time()))
+
         if items is not None or sites is not None:
             self.registry.db.drop_tmp_table('ids_tmp')
+
+        LOG.info("aV4_4: %s" % str(time.time()))
 
         if (request_id is not None and len(all_requests) != 0) or \
            (statuses is not None and (set(statuses) <= set(['new', 'activated']) or set(statuses) <= set([Request.ST_NEW, Request.ST_ACTIVATED]))):
             # there's nothing in the archive
             return all_requests
+
+        LOG.info("aV4_5: %s" % str(time.time()))
 
         # Pick up archived requests from the history DB
         archived_requests = {}
@@ -75,9 +88,13 @@ class CopyRequestManager(RequestManager):
         sql += self._make_history_constraints(request_id, statuses, users, items, sites)
         sql += ' ORDER BY r.`id`'
 
+        LOG.info("aV4_6: %s" % str(time.time()))
+
         for rid, group, n, status, request_time, reason, user, dn in self.history.db.xquery(sql):
             if rid not in all_requests:
                 archived_requests[rid] = CopyRequest(rid, user, dn, group, n, int(status), request_time, request_time, 1, reason)
+
+        LOG.info("aV4_7: %s" % str(time.time()))
 
         if len(archived_requests) != 0:
             # get the sites
@@ -102,15 +119,23 @@ class CopyRequestManager(RequestManager):
             for rid, dataset, block in self.history.db.xquery(sql):
                 archived_requests[rid].items.append(df.Block.to_full_name(dataset, block))
 
+        LOG.info("aV4_8: %s" % str(time.time()))
+
         all_requests.update(archived_requests)
+
+        LOG.info("aV4_9: %s" % str(time.time()))
 
         if items is not None or sites is not None:
             self.history.db.drop_tmp_table('ids_tmp')
+
+        LOG.info("aV4_10: %s" % str(time.time()))
 
         return all_requests
 
     def create_request(self, caller, items, sites, sites_original, group, ncopies):
         now = int(time.time())
+
+        LOG.info("aX: %s" % str(time.time()))
 
         if self._read_only:
             return CopyRequest(0, caller.name, caller.dn, group, ncopies, 'new', now, now, 1)
@@ -123,7 +148,12 @@ class CopyRequestManager(RequestManager):
         mapping = lambda site: (request_id, site)
         self.registry.db.insert_many('copy_request_sites', ('request_id', 'site'), mapping, sites)
         mapping = lambda item: (request_id, item)
+
+        LOG.info("aY: %s" % str(time.time()))
+
         self.registry.db.insert_many('copy_request_items', ('request_id', 'item'), mapping, items)
+
+        LOG.info("aZ: %s" % str(time.time()))
 
         # Make an entry in history
         history_user_ids = self.history.save_users([(caller.name, caller.dn)], get_ids = True)
