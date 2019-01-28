@@ -11,21 +11,22 @@ LOG = logging.getLogger(__name__)
 class CopyRequestManager(RequestManager):
     def __init__(self, config = None):
         RequestManager.__init__(self, 'copy', config)
+        LOG.info("Initializing CopyRequestManager with config:")
+        LOG.info(config)
 
     def lock(self): #override
         # Caller of this function is responsible for unlocking
         # Non-aliased locks are for insert & update statements later
         tables = [
             ('copy_requests', 'r'), 'copy_requests', ('active_copies', 'a'), 'active_copies',
-            ('copy_request_items', 'i'), 'copy_request_items', ('copy_request_sites', 's'), 'copy_request_sites'
+            ('copy_request_items', 'i'), 'copy_request_items', ('copy_request_sites', 's'), 'copy_request_sites',
+            ('cached_copy_requests','c'), 'cached_copy_requests'
         ]
 
         if not self._read_only:
             self.registry.db.lock_tables(write = tables)
 
     def get_requests(self, request_id = None, statuses = None, users = None, items = None, sites = None):
-        LOG.info("aV4_0: %s" % str(time.time()))
-
         all_requests = {}
 
         sql = 'SELECT r.`id`, r.`group`, r.`num_copies`, 0+r.`status`, UNIX_TIMESTAMP(r.`first_request_time`), UNIX_TIMESTAMP(r.`last_request_time`),'
@@ -36,8 +37,6 @@ class CopyRequestManager(RequestManager):
         sql += ' ORDER BY r.`id`'
 
         _rid = 0
-
-        LOG.info("aV4_1: %s" % str(time.time()))
 
         for rid, group, n, status, first_request, last_request, count, user, dn, a_item, a_site, a_status, a_update in self.registry.db.xquery(sql):
             if rid != _rid:
@@ -50,8 +49,6 @@ class CopyRequestManager(RequestManager):
             if a_item is not None:
                 request.actions.append(RequestAction(a_item, a_site, int(a_status), a_update))
 
-        LOG.info("aV4_2: %s" % str(time.time()))
-
         if len(all_requests) != 0:
             # get the sites
             sql = 'SELECT s.`request_id`, s.`site` FROM `copy_request_sites` AS s WHERE s.`request_id` IN (%s)' %  ','.join('%d' % d for d in all_requests.iterkeys())
@@ -63,19 +60,13 @@ class CopyRequestManager(RequestManager):
             for rid, item in self.registry.db.xquery(sql):
                 all_requests[rid].items.append(item)
 
-        LOG.info("aV4_3: %s" % str(time.time()))
-
         if items is not None or sites is not None:
             self.registry.db.drop_tmp_table('ids_tmp')
-
-        LOG.info("aV4_4: %s" % str(time.time()))
 
         if (request_id is not None and len(all_requests) != 0) or \
            (statuses is not None and (set(statuses) <= set(['new', 'activated']) or set(statuses) <= set([Request.ST_NEW, Request.ST_ACTIVATED]))):
             # there's nothing in the archive
             return all_requests
-
-        LOG.info("aV4_5: %s" % str(time.time()))
 
         # Pick up archived requests from the history DB
         archived_requests = {}
@@ -88,13 +79,9 @@ class CopyRequestManager(RequestManager):
         sql += self._make_history_constraints(request_id, statuses, users, items, sites)
         sql += ' ORDER BY r.`id`'
 
-        LOG.info("aV4_6: %s" % str(time.time()))
-
         for rid, group, n, status, request_time, reason, user, dn in self.history.db.xquery(sql):
             if rid not in all_requests:
                 archived_requests[rid] = CopyRequest(rid, user, dn, group, n, int(status), request_time, request_time, 1, reason)
-
-        LOG.info("aV4_7: %s" % str(time.time()))
 
         if len(archived_requests) != 0:
             # get the sites
@@ -119,23 +106,15 @@ class CopyRequestManager(RequestManager):
             for rid, dataset, block in self.history.db.xquery(sql):
                 archived_requests[rid].items.append(df.Block.to_full_name(dataset, block))
 
-        LOG.info("aV4_8: %s" % str(time.time()))
-
         all_requests.update(archived_requests)
-
-        LOG.info("aV4_9: %s" % str(time.time()))
 
         if items is not None or sites is not None:
             self.history.db.drop_tmp_table('ids_tmp')
-
-        LOG.info("aV4_10: %s" % str(time.time()))
 
         return all_requests
 
     def create_request(self, caller, items, sites, sites_original, group, ncopies):
         now = int(time.time())
-
-        LOG.info("aX: %s" % str(time.time()))
 
         if self._read_only:
             return CopyRequest(0, caller.name, caller.dn, group, ncopies, 'new', now, now, 1)
@@ -143,17 +122,14 @@ class CopyRequestManager(RequestManager):
         # Make an entry in registry
         columns = ('group', 'num_copies', 'user', 'dn', 'first_request_time', 'last_request_time')
         values = (group, ncopies, caller.name, caller.dn, MySQL.bare('FROM_UNIXTIME(%d)' % now), MySQL.bare('FROM_UNIXTIME(%d)' % now))
+        LOG.info(values)
         request_id = self.registry.db.insert_get_id('copy_requests', columns, values)
 
         mapping = lambda site: (request_id, site)
         self.registry.db.insert_many('copy_request_sites', ('request_id', 'site'), mapping, sites)
         mapping = lambda item: (request_id, item)
 
-        LOG.info("aY: %s" % str(time.time()))
-
         self.registry.db.insert_many('copy_request_items', ('request_id', 'item'), mapping, items)
-
-        LOG.info("aZ: %s" % str(time.time()))
 
         # Make an entry in history
         history_user_ids = self.history.save_users([(caller.name, caller.dn)], get_ids = True)
@@ -173,6 +149,22 @@ class CopyRequestManager(RequestManager):
         self.history.db.insert_many('copy_request_blocks', ('request_id', 'block_id'), mapping, history_block_ids)
 
         return self.get_requests(request_id = request_id)[request_id]
+
+    def create_cached_request(self, caller, item, sites_original, group, ncopies):
+        now = int(time.time())
+
+        # Make an entry in registry
+        columns = ('item', 'sites', 'group', 'num_copies', 'user', 'dn', 'request_time', 'status')
+        values = (item, sites_original, group, ncopies, caller.name, caller.dn, MySQL.bare('FROM_UNIXTIME(%d)' % now), 'new')
+        LOG.info(values)
+        cached_request_id = self.registry.db.insert_get_id('cached_copy_requests', columns, values)
+
+        return_dict = {}
+        return_dict['request_id'] = cached_request_id
+        return_dict['item'] = item
+        return_dict['sites'] = sites_original
+
+        return return_dict
 
     def update_request(self, request):
         if self._read_only:

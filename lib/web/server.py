@@ -280,8 +280,12 @@ class WebServer(object):
                     # replace content with the json string
                     start = time.time()
                     if self.callback is not None:
+                        LOG.info("Callback is not None")
+                        LOG.info(json_data)
                         content = '%s(%s)' % (self.callback, json.dumps(json_data))
                     else:
+                        LOG.info("Callback is None")
+                        LOG.info(json_data)
                         content = json.dumps(json_data)
 
                     root_logger.info('Make JSON: %s seconds', time.time() - start)

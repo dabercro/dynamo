@@ -156,7 +156,7 @@ class FileTransferHistory(WebModule):
         if nbins>0:
             dt = delta_t/nbins
 
-        if      abs(dt-604800) < 1:
+        if   abs(dt-604800) < 1:
             unit = ' / week';
         elif abs(dt-86400.) < 1:
             unit = ' / day';
