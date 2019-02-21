@@ -3,7 +3,7 @@ import time
 
 from dynamo.utils.interface.mysql import MySQL
 from dynamo.history.history import HistoryDatabase
-from dynamo.registry.registry import RegistryDatabase#, CacheDatabase
+from dynamo.registry.registry import RegistryDatabase, CacheDatabase
 import dynamo.dataformat as df
 from dynamo.dataformat.request import Request, RequestAction
 

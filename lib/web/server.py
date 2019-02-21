@@ -465,6 +465,8 @@ class WebServer(object):
 
                 # Even though our default content type is URL form, we check if this is a JSON
                 try:
+                    LOG.info("Printing post_data")
+                    LOG.info(post_data)
                     json_data = json.loads(post_data)
                 except:
                     if content_type == 'application/json':
@@ -478,6 +480,8 @@ class WebServer(object):
 
                 if content_type == 'application/x-www-form-urlencoded':
                     try:
+                        LOG.info("Printing post_data 2")
+                        LOG.info(post_data)
                         post_request = parse_qs(post_data)
                     except:
                         self.code = 400

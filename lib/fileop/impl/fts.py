@@ -403,8 +403,6 @@ class FTSFileOperation(FileTransferOperation, FileTransferQuery, FileDeletionOpe
                 LOG.error('Failed to submit %s to FTS: Exception %s (%s)', optype, exc_type.__name__, str(exc))
                 return False
 
-        LOG.info('FTS job id: %s', job_id)
-
         # list of file-level operations (one-to-one with pfn)
         try:
             if optype == 'transfer' or optype == 'staging':

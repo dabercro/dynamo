@@ -657,15 +657,6 @@ class RLFSM(object):
                                 if replica.site.storage_type == Site.TYPE_DISK:
                                     disk_sources.append(replica.site)
                                 elif replica.site.storage_type == Site.TYPE_MSS:
-                                    if 'DESY' in dest_replica.site.name:
-                                        LOG.info('Here comes the bride')
-                                        LOG.info(replica.site)
-                                        LOG.info(destination)
-                                        LOG.info(row)
-                                        #self.cancel_subscription(destination, lfile)
-                                        #self.subscribe_file(destination, lfile)
-                                        #skip_rest = True
-                                        #break
                                     tape_sources.append(replica.site)
                         if skip_rest:
                             continue
@@ -731,8 +722,6 @@ class RLFSM(object):
                 msg += ', %d held with reason "no_source"' % len(no_source)
             if len(all_failed) != 0:
                 msg += ', %d held with reason "all_failed"' % len(all_failed)
-
-            LOG.info(msg)
 
         if not self._read_only:
             self.db.execute_many('UPDATE `file_subscriptions` SET `status` = \'done\', `last_update` = NOW()', 'id', to_done)
@@ -910,7 +899,6 @@ class RLFSM(object):
             history_table_name = 'file_transfers'
             history_site_fields = ('source_id', 'destination_id')
         else:
-            LOG.info("WTFFFFFFFF UUU")
             history_table_name = 'file_deletions'
             history_site_fields = ('site_id',)
 
@@ -954,12 +942,6 @@ class RLFSM(object):
 
                 
                 for condition, query in self.transfer_queries:
-                    
-                    LOG.info("xxxxxxxxxxxxxxxx")
-                    LOG.info(condition)
-                    LOG.info(query)
-                    LOG.info("xxxxxxxxxxxxxxxx")
-
                     results = query.get_transfer_status(batch_id)
                     if len(results) != 0:
                         break
@@ -972,20 +954,12 @@ class RLFSM(object):
 
 
             batch_complete = True
-            if len(results) == 0:
-                LOG.info('did I just fail? ' + str(batch_id))
-
-
-            LOG.info("yyyyyyyyyy")
-            LOG.info(len(results))
-            LOG.info("yyyyyyyyyy")
 
             for task_id, status, exitcode, message, start_time, finish_time in results:
                 # start_time and finish_time can be None
                 LOG.debug('%s result: %d %s %d %s %s', optype, task_id, FileQuery.status_name(status), exitcode, start_time, finish_time)
 
                 if status == FileQuery.STAT_DONE:
-                    LOG.info('%s RESSSSULT: %d %s %d %s %s', optype, task_id, FileQuery.status_name(status), exitcode, start_time, finish_time)
                     num_success += 1
                 elif status == FileQuery.STAT_FAILED:
                     num_failure += 1
@@ -1044,25 +1018,17 @@ class RLFSM(object):
                 if self._read_only:
                     history_id = 0
                 else:
-                    #LOG.info("A:")
-                    #LOG.info(history_table_name)
-                    #LOG.info("B:")
-                    #LOG.info(history_fields)
-                    #LOG.info("C:")
-                    #LOG.info(values)
-
+                    #LOG.error(values)
                     #values_tmp = set()
                     #for v in values:
                     #    try:
-                    #        tmp = v.replace(u"\u2018", "'").replace(u"\u2019", "'")
+                    #        tmp = v.replace(u"\u2019", "'")
                     #        values_tmp.add(tmp)
                     #    except:
-                    #        values_tmp.add(v)                    
+                    #        values_tmp.add(v)
+                    #LOG.error(history_fields)
+                    #LOG.error(values_tmp)
                     #values = values_tmp
-
-                    
-                    LOG.info(values)
-
 
                     history_id = self.history_db.db.insert_get_id(history_table_name, history_fields, values)
 
